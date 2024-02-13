@@ -11,27 +11,42 @@ SOURCE_FOLDER = ''
 REPLICA_FOLDER = ''
 FILES_INFO = {}
 
+mutex = threading.Lock()
+
 
 def set_source_folder(source: str):
-    global SOURCE_FOLDER
-    SOURCE_FOLDER = source
+    mutex.acquire()
+    try:
+        global SOURCE_FOLDER
+        SOURCE_FOLDER = source
+    finally:
+        mutex.release()
     # TODO More commands
 
 
 def set_replica_folder(replica: str):
     global REPLICA_FOLDER
-    REPLICA_FOLDER = replica
+    mutex.acquire()
+    try:
+        REPLICA_FOLDER = replica
+    finally:
+        mutex.release()
     # TODO More commands
 
 
 def set_files_info(files: dict):
     global FILES_INFO
-    FILES_INFO = files
+    mutex.acquire()
+    try:
+        FILES_INFO = files
+    finally:
+        mutex.release()
     # TODO more commands
 
 
 def get_folder_info():
     files_info = {}
+    mutex.acquire()
     for (root, dirs, files) in walk(SOURCE_FOLDER, topdown=True):
         file_list = []
         dir_list = []
@@ -47,16 +62,18 @@ def get_folder_info():
             'directories': tuple(dir_list),
             'files': tuple(file_list)
         }
+    mutex.release()
     set_files_info(files_info)
 
 
 def save_data():
+    mutex.acquire()
     data = {
         "source_folder": SOURCE_FOLDER,
         "replica_folder": REPLICA_FOLDER,
         "files_info": FILES_INFO
     }
-
+    mutex.release()
     with open(path.join(path.dirname(__file__), SAVED_DATA_FOLDER), "w") as outfile:
         json.dump(data, outfile)
 
@@ -91,7 +108,7 @@ if SOURCE_FOLDER == '':
     print()
 
 if REPLICA_FOLDER == '':
-    set_files_info(
+    set_replica_folder(
         input("Type the folder where you want to store the files: "))
     print()
 
