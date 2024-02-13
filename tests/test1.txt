@@ -1,0 +1,3 @@
+tests/source_folder
+tests/replica_folder
+Exit
