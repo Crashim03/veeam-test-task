@@ -1,7 +1,9 @@
 from os import path, walk
+from deepdiff import DeepDiff
 import json
 import threading
 import time
+import shutil
 
 SAVED_DATA_FOLDER = "data.json"
 INTERVAL = 1
@@ -44,10 +46,10 @@ def set_files_info(files: dict):
     # TODO more commands
 
 
-def get_folder_info():
+def get_folder_info(folder):
     files_info = {}
     mutex.acquire()
-    for (root, dirs, files) in walk(SOURCE_FOLDER, topdown=True):
+    for (root, dirs, files) in walk(folder, topdown=True):
         file_list = []
         dir_list = []
 
@@ -59,11 +61,28 @@ def get_folder_info():
                 (directory, path.getctime(path.join(root, directory))))
 
         files_info[root] = {
-            'directories': tuple(dir_list),
-            'files': tuple(file_list)
+            'directories': dir_list,
+            'files': file_list
         }
     mutex.release()
-    set_files_info(files_info)
+    return files_info
+
+
+def compare_folder_info(folder_info):
+    differences = DeepDiff(FILES_INFO, folder_info)
+
+    differences = {
+        'added': differences['dictionary_item_added']
+    }
+    return differences
+
+
+def copy_files(differences):
+    if differences == {}:
+        return
+    print(differences)
+
+    shutil.copytree(SOURCE_FOLDER, REPLICA_FOLDER, dirs_exist_ok=True)
 
 
 def save_data():
@@ -87,15 +106,18 @@ def load_data():
     set_files_info(data["files_info"])
 
 
-def reset_data():
-    # TODO
-    pass
-
-
 def sync():
     while (ACTIVE):
-        get_folder_info()
+        replica_files_info = get_folder_info(REPLICA_FOLDER)
+        differences = compare_folder_info(replica_files_info)
+        copy_files(differences)
+
+        source_files_info = get_folder_info(SOURCE_FOLDER)
+        differences = compare_folder_info(source_files_info)
+        set_files_info(source_files_info)
         save_data()
+        copy_files(differences)
+
         time.sleep(INTERVAL)
     # TODO
 
@@ -112,7 +134,8 @@ if REPLICA_FOLDER == '':
         input("Type the folder where you want to store the files: "))
     print()
 
-print(SOURCE_FOLDER)
+print("Source folder: ", SOURCE_FOLDER)
+print("Replica: ", REPLICA_FOLDER)
 
 thread = threading.Thread(target=sync)
 thread.start()
